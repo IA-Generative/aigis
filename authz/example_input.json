@@ -1,0 +1,12 @@
+{
+  "sub": "bob-uuid",
+  "device_id": "dev-abc-123",
+  "route": "/api/v1/orders/42",
+  "method": "GET",
+  "device_headers": {
+    "x_device_id": "dev-abc-123",
+    "x_device_nonce": "550e8400-e29b-41d4-a716-446655440000",
+    "x_device_timestamp": "2026-03-05T12:00:00Z",
+    "x_device_signature": "MEUCIQD...base64..."
+  }
+}

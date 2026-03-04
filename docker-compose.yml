@@ -1,0 +1,150 @@
+services:
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules        # garde le node_modules du conteneur
+    environment:
+      VITE_API_URL: http://localhost:8080
+    depends_on:
+      device-service:
+        condition: service_started
+      keycloak:
+        condition: service_healthy
+    restart: unless-stopped
+
+  device-service:
+    build:
+      context: .
+      target: dev
+      dockerfile: device/Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./device:/app
+    environment:
+      ENV: development
+      PORT: "8080"
+      DATABASE_URL: "postgres://device:device@postgres:5432/devicedb?sslmode=disable"
+      REDIS_URL: "redis://redis:6379"
+      KEYCLOAK_URL: "http://keycloak:8080"
+      KEYCLOAK_PUBLIC_URI: "http://localhost:8081/"
+      KEYCLOAK_REALM: "myapp"
+      ATTESTATION_MODE: "prefer_hardware"
+      REATTEST_INTERVAL_HOURS: "24"
+      REQUIRE_DEVICE_SIGNATURE: "false"
+      RISK_THRESHOLD_FULL: "70"
+      RISK_THRESHOLD_LIMITED: "40"
+      SMTP_HOST: "mailhog"
+      SMTP_PORT: "1025"
+      SMTP_FROM: "device-service@localhost"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    restart: unless-stopped
+
+  # ── OPA AuthZ ────────────────────────────────────────────────────────────────
+  # opa:
+  #   build:
+  #     context: ./authz
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8181:8181"
+  #   environment:
+  #     DEVICE_SERVICE_URL: "http://device-service:8080"
+  #     BUNDLE_SERVER_URL:  "http://bundle-server:8080"
+  #     LOG_LEVEL: "WARN"
+  #   healthcheck:
+  #     test: ["CMD", "/opa", "health", "--addr=http://localhost:8181"]
+  #     interval: 10s
+  #     timeout:  5s
+  #     retries:  3
+  #   # depends_on:
+  #   #   device-service:
+  #   #     condition: service_healthy
+  #   restart: unless-stopped
+
+  # ── Bundle server (nginx servant les policies repackagées) ───────────────────
+  # Utile en prod pour recharger les policies sans restart OPA
+  bundle-server:
+    image: nginx:alpine
+    container_name: bundle-server
+    volumes:
+      - ./authz/bundles:/usr/share/nginx/html/bundles:ro
+    ports:
+      - "8090:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 10s
+      timeout:  5s
+      retries:  3
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: device
+      POSTGRES_PASSWORD: device
+      POSTGRES_DB: devicedb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U device -d devicedb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4.2
+    command:
+      - start-dev
+      - --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    volumes:
+      - ./keycloak/realm.json:/opt/keycloak/data/import/realm.json:ro
+    ports:
+      - "8081:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && echo -e 'GET /realms/master HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

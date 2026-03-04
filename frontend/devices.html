@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mes appareils</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 860px; margin: 32px auto; padding: 0 12px; }
+    nav { margin-bottom: 20px; font-size: 14px; }
+    nav a { margin-right: 16px; color: #1a73e8; text-decoration: none; }
+    nav a:hover { text-decoration: underline; }
+    h1 { margin-bottom: 4px; }
+    h2 { margin-top: 28px; margin-bottom: 8px; font-size: 18px; }
+    #banner { margin-bottom: 16px; padding: 10px 14px; border-radius: 8px; font-size: 14px; }
+    #banner.ok { background: #eefaf1; border: 1px solid #b9e2c3; color: #1f5130; }
+    #banner.ko { background: #fff3f3; border: 1px solid #f0c9c9; color: #7a2222; }
+    #banner.info { background: #f0f4ff; border: 1px solid #b3c6f0; color: #1a3a7a; }
+    #banner.warn { background: #fff8e1; border: 1px solid #f0dca0; color: #7a6318; }
+
+    #trustGate { display: none; margin-bottom: 16px; padding: 14px 18px; border-radius: 8px; background: #fff3f3; border: 1px solid #f0c9c9; color: #7a2222; font-size: 14px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 8px 10px; background: #f5f5f5; border-bottom: 2px solid #ddd; white-space: nowrap; }
+    td { padding: 8px 10px; border-bottom: 1px solid #eee; vertical-align: middle; }
+    tr:hover td { background: #fafafa; }
+    tr.current-device td { background: #f0f7ff; }
+
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+    .badge.active    { background: #d4edda; color: #155724; }
+    .badge.revoked   { background: #f8d7da; color: #721c24; }
+    .badge.suspended { background: #e2e3e5; color: #383d41; }
+    .badge.pending_approval { background: #fff3cd; color: #856404; }
+
+    .hw-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; background: #e8f0fe; color: #1a3a7a; }
+
+    button.action { padding: 4px 10px; font-size: 12px; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; }
+    button.revoke  { background: #fff0f0; border-color: #e0a0a0; color: #7a2222; }
+    button.reattest { background: #f0f7ff; border-color: #a0c0e0; color: #1a3a7a; }
+    button.approve { background: #eefaf1; border-color: #a0d8b0; color: #155724; }
+    button.reject  { background: #fff0f0; border-color: #e0a0a0; color: #7a2222; }
+    button.action:disabled { opacity: 0.4; cursor: default; }
+
+    #refreshBtn { padding: 8px 18px; font-size: 14px; cursor: pointer; }
+    .empty { color: #888; padding: 24px 0; text-align: center; }
+    .current-label { font-size: 10px; font-weight: 700; color: #1a73e8; margin-left: 6px; }
+    .mono { font-family: monospace; font-size: 11px; color: #555; }
+
+    .pending-section { margin-top: 16px; padding: 12px; border-radius: 8px; background: #fffce6; border: 1px solid #f0dca0; }
+    .pending-section h3 { margin: 0 0 10px; font-size: 15px; color: #856404; }
+    .pending-card { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 6px; background: #fff; border: 1px solid #e8e0c0; margin-bottom: 6px; }
+    .pending-card .info { font-size: 13px; }
+    .pending-card .info .id { font-family: monospace; font-size: 11px; color: #666; }
+    .pending-card .actions button { margin-left: 6px; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">&#8592; Device Flow (browser)</a>
+    <a href="/heavy-client.html">Heavy Client</a>
+  </nav>
+
+  <h1>Mes appareils</h1>
+  <div id="banner" class="info">Chargement…</div>
+  <div id="trustGate">
+    &#128274; <strong>Accès restreint</strong> — Le score de confiance de votre appareil actuel est insuffisant ( 70/100).
+    La gestion des appareils nécessite un appareil de confiance. Effectuez une re-attestation pour augmenter votre score.
+  </div>
+
+  <div id="pendingSection" class="pending-section" style="display:none">
+    <h3>&#9888;&#65039; Appareils en attente d'approbation</h3>
+    <div id="pendingList"></div>
+  </div>
+
+  <p style="margin: 12px 0 4px">
+    <button id="refreshBtn" type="button">&#8635; Rafraîchir</button>
+  </p>
+
+  <table id="devicesTable">
+    <thead>
+      <tr>
+        <th>Nom</th>
+        <th>ID</th>
+        <th>Plateforme</th>
+        <th>Niveau matériel</th>
+        <th>Score confiance</th>
+        <th>Statut</th>
+        <th>Dernière activité</th>
+        <th>Enregistré le</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="devicesBody">
+      <tr><td colspan="9" class="empty">Chargement…</td></tr>
+    </tbody>
+  </table>
+
+  <script src="/common.js"></script>
+  <script src="/device-crypto.js"></script>
+  <script>
+    const DEVICE_SERVICE_BASE_URL = window.Common.DEVICE_SERVICE_BASE_URL;
+    const ACCESS_TOKEN_STORAGE_KEY = window.Common.STORAGE_KEYS.ACCESS_TOKEN;
+    const DEVICE_ID_STORAGE_KEY    = window.Common.STORAGE_KEYS.DEVICE_ID;
+
+    const api           = window.Common.api;
+    const decodeJWT     = window.Common.decodeJWT;
+    const isTokenExpired = window.Common.isTokenExpired;
+    const bannerEl      = document.getElementById("banner");
+    const tbody         = document.getElementById("devicesBody");
+    const trustGateEl   = document.getElementById("trustGate");
+    const pendingSection = document.getElementById("pendingSection");
+    const pendingList    = document.getElementById("pendingList");
+
+    let currentDeviceTrustScore = null;
+    let sseSource = null;
+
+    function setBanner(type, msg) {
+      bannerEl.className = type;
+      bannerEl.textContent = msg;
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return "—";
+      return new Date(iso).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
+    }
+
+    function statusBadge(status) {
+      return `<span class="badge ${status}">${status}</span>`;
+    }
+
+    function hwBadge(level) {
+      return level ? `<span class="hw-badge">${level}</span>` : "—";
+    }
+
+    function trustBadge(score) {
+      if (score == null || score === undefined) return "—";
+      let color = "#721c24", bg = "#f8d7da";
+      if (score >= 70) { color = "#155724"; bg = "#d4edda"; }
+      else if (score >= 40) { color = "#856404"; bg = "#fff3cd"; }
+      return `<span class="badge" style="background:${bg};color:${color}">${score}/100</span>`;
+    }
+
+    async function revokeDevice(deviceId, token) {
+      await api(`${DEVICE_SERVICE_BASE_URL}/devices/${encodeURIComponent(deviceId)}/revoke`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+    }
+
+    async function approveDevice(deviceId, token) {
+      const currentDeviceId = localStorage.getItem(DEVICE_ID_STORAGE_KEY) || "";
+      await api(`${DEVICE_SERVICE_BASE_URL}/devices/${encodeURIComponent(deviceId)}/approve`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ approver_device_id: currentDeviceId })
+      });
+    }
+
+    async function rejectDevice(deviceId, token) {
+      await api(`${DEVICE_SERVICE_BASE_URL}/devices/${encodeURIComponent(deviceId)}/reject`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+    }
+
+    async function reattestDevice(deviceId, token) {
+      // 1. Request a challenge from the server
+      const challengeResp = await api(`${DEVICE_SERVICE_BASE_URL}/devices/${encodeURIComponent(deviceId)}/challenge`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+
+      // 2. Sign the challenge with the device key
+      const signData = await window.DeviceCrypto.signChallenge(challengeResp.challenge);
+
+      // 3. Send the signed re-attestation
+      const hwInfo = await window.DeviceCrypto.detectHardwareLevel();
+      let publicKeyPEM = "";
+      try {
+        const keyPair = await window.DeviceCrypto.loadKeyPair();
+        if (keyPair && keyPair.publicKey) {
+          publicKeyPEM = await window.DeviceCrypto.exportPublicKeyPEM(keyPair.publicKey);
+        }
+      } catch (_) {}
+
+      return api(`${DEVICE_SERVICE_BASE_URL}/devices/${encodeURIComponent(deviceId)}/reattest`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          signature: signData.signature,
+          timestamp: signData.timestamp,
+          nonce: signData.nonce,
+          public_key: publicKeyPEM,
+          key_algorithm: "ES256",
+          hardware_level: hwInfo.level,
+          provider_name: hwInfo.provider
+        })
+      });
+    }
+
+    // ─── Trust >= 70 gate ─────────────────────────────────────────────────────
+    async function checkTrustGate(token) {
+      const currentDeviceId = localStorage.getItem(DEVICE_ID_STORAGE_KEY) || "";
+      if (!currentDeviceId) return false;
+
+      try {
+        const trustData = await api(`${DEVICE_SERVICE_BASE_URL}/devices/${encodeURIComponent(currentDeviceId)}/trust`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        currentDeviceTrustScore = trustData.trust_score;
+        return trustData.trust_score >= 70;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    // ─── Pending devices ──────────────────────────────────────────────────────
+    async function loadPendingDevices(token) {
+      try {
+        const pending = await api(`${DEVICE_SERVICE_BASE_URL}/me/devices/pending`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        if (!pending || pending.length === 0) {
+          pendingSection.style.display = "none";
+          return;
+        }
+
+        pendingSection.style.display = "block";
+        pendingList.innerHTML = pending.map(d => `
+          <div class="pending-card" data-device-id="${d.device_id}">
+            <div class="info">
+              <strong>${d.name || "Nouvel appareil"}</strong>
+              <span class="id">${d.device_id}</span><br/>
+              <small>${d.platform || "?"} — ${fmtDate(d.created_at)}</small>
+            </div>
+            <div class="actions">
+              <button class="action approve" data-id="${d.device_id}" data-action="approve" title="Approuver">✅ Approuver</button>
+              <button class="action reject" data-id="${d.device_id}" data-action="reject" title="Rejeter">❌ Rejeter</button>
+            </div>
+          </div>
+        `).join("");
+
+        // Event delegation for pending actions
+        pendingList.querySelectorAll("button.action").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            const deviceId = btn.dataset.id;
+            const action = btn.dataset.action;
+            const currentToken = sessionStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) || "";
+            btn.disabled = true;
+
+            try {
+              if (action === "approve") {
+                await approveDevice(deviceId, currentToken);
+                setBanner("ok", `Appareil ${deviceId.substring(0, 8)}… approuvé !`);
+              } else if (action === "reject") {
+                if (!confirm(`Rejeter l'appareil ${deviceId} ?`)) { btn.disabled = false; return; }
+                await rejectDevice(deviceId, currentToken);
+                setBanner("ok", `Appareil ${deviceId.substring(0, 8)}… rejeté.`);
+              }
+              await loadPendingDevices(currentToken);
+              await loadDevices();
+            } catch (err) {
+              setBanner("ko", `Erreur: ${err.message}`);
+              btn.disabled = false;
+            }
+          });
+        });
+      } catch (err) {
+        // Silently ignore — pending list is optional
+      }
+    }
+
+    // ─── SSE listener pour les notifications temps réel ───────────────────────
+    function startSSE(token) {
+      if (sseSource) { sseSource.close(); sseSource = null; }
+      // Note : EventSource ne supporte pas les headers custom.
+      // On utilise le polling dans loadPendingDevices comme fallback.
+      // Pour une vraie SSE, il faudrait un proxy ou un token en query param.
+      // Ici on fait un refresh auto toutes les 10s comme alternative simple.
+      const interval = setInterval(async () => {
+        const t = sessionStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) || "";
+        if (!t || isTokenExpired(t)) { clearInterval(interval); return; }
+        await loadPendingDevices(t);
+      }, 10000);
+      // Store interval reference for cleanup
+      sseSource = { close: () => clearInterval(interval) };
+    }
+
+    async function loadDevices() {
+      const token = sessionStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) || "";
+      if (!token || isTokenExpired(token)) {
+        setBanner("ko", "Vous n'êtes pas connecté. Retournez sur la page d'accueil pour vous authentifier.");
+        tbody.innerHTML = `<tr><td colspan="9" class="empty">Non authentifié.</td></tr>`;
+        return;
+      }
+
+      let username = "vous";
+      try { username = decodeJWT(token).preferred_username || username; } catch (_) {}
+
+      // ─── Trust >= 70 gate ─────────────────────────────────────────────────
+      const hasSufficientTrust = await checkTrustGate(token);
+      if (!hasSufficientTrust && currentDeviceTrustScore !== null) {
+        trustGateEl.style.display = "block";
+        setBanner("warn", `Connecté (${username}) — Score de confiance actuel : ${currentDeviceTrustScore}/100 (minimum 70 requis pour la gestion)`);
+      } else {
+        trustGateEl.style.display = "none";
+        setBanner("ok", `Connecté en tant que ${username}`);
+      }
+
+      const currentDeviceId = localStorage.getItem(DEVICE_ID_STORAGE_KEY) || "";
+
+      // Charger les pending devices (pour les devices de confiance)
+      if (hasSufficientTrust) {
+        await loadPendingDevices(token);
+        startSSE(token);
+      }
+
+      let devices;
+      try {
+        devices = await api(`${DEVICE_SERVICE_BASE_URL}/me/devices`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+      } catch (err) {
+        setBanner("ko", `Erreur lors du chargement: ${err.message}`);
+        tbody.innerHTML = `<tr><td colspan="9" class="empty">Impossible de charger les appareils.</td></tr>`;
+        return;
+      }
+
+      const visibleDevices = (devices || []).filter(d => d.status !== "revoked");
+
+      if (visibleDevices.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="empty">Aucun appareil enregistré.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = visibleDevices.map(d => {
+        const isCurrent = d.device_id === currentDeviceId;
+        const currentLabel = isCurrent ? `<span class="current-label">&#9654; actuel</span>` : "";
+        const canManage = hasSufficientTrust || isCurrent; // On peut toujours re-attester le device courant
+
+        let actions = "";
+        if (d.status === "active") {
+          if (isCurrent) {
+            actions += `<button class="action reattest" data-id="${d.device_id}" data-action="reattest">Re-attester</button> `;
+          }
+          if (canManage) {
+            actions += `<button class="action revoke" data-id="${d.device_id}" data-action="revoke">Révoquer</button>`;
+          }
+        } else if (d.status === "pending_approval") {
+          if (hasSufficientTrust) {
+            actions += `<button class="action approve" data-id="${d.device_id}" data-action="approve">✅</button> `;
+            actions += `<button class="action reject" data-id="${d.device_id}" data-action="reject">❌</button>`;
+          } else {
+            actions = `<span style="font-size:11px;color:#888">En attente…</span>`;
+          }
+        }
+
+        return `<tr class="${isCurrent ? "current-device" : ""}">
+          <td>${d.name || "—"}${currentLabel}</td>
+          <td class="mono">${d.device_id}</td>
+          <td>${d.platform || "—"}</td>
+          <td>${hwBadge(d.hardware_level)}</td>
+          <td>${trustBadge(d.trust_score)}</td>
+          <td>${statusBadge(d.status)}</td>
+          <td>${fmtDate(d.last_seen)}</td>
+          <td>${fmtDate(d.created_at)}</td>
+          <td>${actions}</td>
+        </tr>`;
+      }).join("");
+
+      // Event delegation for action buttons
+      tbody.querySelectorAll("button.action").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const deviceId = btn.dataset.id;
+          const action = btn.dataset.action;
+          const currentToken = sessionStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) || "";
+
+          if (action === "revoke") {
+            if (!confirm(`Révoquer l'appareil ${deviceId} ?`)) return;
+            btn.disabled = true;
+            try {
+              await revokeDevice(deviceId, currentToken);
+              await loadDevices();
+            } catch (err) {
+              setBanner("ko", `Erreur: ${err.message}`);
+              btn.disabled = false;
+            }
+          } else if (action === "reattest") {
+            btn.disabled = true;
+            btn.textContent = "Re-attestation…";
+            try {
+              const result = await reattestDevice(deviceId, currentToken);
+              setBanner("ok", `Re-attestation réussie ! Score: ${result.trust_score || "?"}/100`);
+              await loadDevices();
+            } catch (err) {
+              setBanner("ko", `Erreur re-attestation: ${err.message}`);
+              btn.disabled = false;
+              btn.textContent = "Re-attester";
+            }
+          } else if (action === "approve") {
+            btn.disabled = true;
+            try {
+              await approveDevice(deviceId, currentToken);
+              setBanner("ok", `Appareil approuvé !`);
+              await loadDevices();
+            } catch (err) {
+              setBanner("ko", `Erreur approbation: ${err.message}`);
+              btn.disabled = false;
+            }
+          } else if (action === "reject") {
+            if (!confirm(`Rejeter l'appareil ${deviceId} ?`)) return;
+            btn.disabled = true;
+            try {
+              await rejectDevice(deviceId, currentToken);
+              setBanner("ok", `Appareil rejeté.`);
+              await loadDevices();
+            } catch (err) {
+              setBanner("ko", `Erreur rejet: ${err.message}`);
+              btn.disabled = false;
+            }
+          }
+        });
+      });
+    }
+
+    document.getElementById("refreshBtn").addEventListener("click", loadDevices);
+
+    window.addEventListener("load", loadDevices);
+  </script>
+</body>
+</html>

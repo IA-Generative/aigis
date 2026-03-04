@@ -1,0 +1,16 @@
+body { font-family: Arial, sans-serif; max-width: 760px; margin: 32px auto; padding: 0 12px; }
+.card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; }
+#startBtn { width: 100%; padding: 16px; font-size: 18px; font-weight: 700; cursor: pointer; }
+#status { margin-top: 12px; padding: 10px; border-radius: 8px; font-size: 14px; }
+#status.ok { background: #eefaf1; border: 1px solid #b9e2c3; color: #1f5130; }
+#status.ko { background: #fff3f3; border: 1px solid #f0c9c9; color: #7a2222; }
+textarea { margin-top: 12px; width: 100%; min-height: 220px; box-sizing: border-box; font-family: monospace; }
+#debug { min-height: 140px; }
+
+
+#resetBtn { flex: 1; min-width: 10rem; padding: 12px; font-size: 14px; cursor: pointer; }
+#logoutBtn { flex: 1; min-width: 10rem; padding: 12px; font-size: 14px; cursor: pointer; background: #fff0f0; border: 1px solid #e0a0a0; color: #7a2222; border-radius: 4px; }
+#logoutBtn:disabled { opacity: 0.4; cursor: default; }
+.danger-zone { 
+  margin-top: 16px;
+display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; }

@@ -1,0 +1,25 @@
+services:
+  # Bundle server (optionnel — pour recharger les policies sans restart)
+  # Peut pointer vers un nginx local, S3, ou OCI registry
+  bundle-server:
+    url: ${BUNDLE_SERVER_URL:-http://device-service:8080}
+
+bundles:
+  authz:
+    service: bundle-server
+    resource: "/bundles/authz.tar.gz"
+    polling:
+      min_delay_seconds: 30
+      max_delay_seconds: 60
+
+# Push des décisions vers un log externe (Kafka, HTTP, stdout)
+decision_logs:
+  console: true                    # stdout JSON — collecté par le log driver Docker
+  # plugin: kafka                  # décommenter pour envoyer vers Kafka
+  # reporting:
+  #   min_delay_seconds: 5
+  #   max_delay_seconds: 10
+
+# Healthcheck endpoint activé
+status:
+  console: true
