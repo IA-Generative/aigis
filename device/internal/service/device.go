@@ -230,11 +230,9 @@ func (s *DeviceService) Status(ctx context.Context, deviceID string) (*model.Sta
 	signed := device.PublicKey != nil && *device.PublicKey != ""
 	sr := &model.StatusResponse{
 		DeviceID:   device.DeviceID,
-		UserID:     device.UserID,
 		Status:     device.Status,
 		TrustScore: &score,
-		AttestedAt: device.AttestedAt,
-		ReattestAt: device.ReattestAt,
+		UserID:     device.UserID,
 		Signed:     signed,
 	}
 

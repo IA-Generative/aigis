@@ -114,23 +114,45 @@ func (s *AttestationService) VerifyRequestSignature(
 	if err != nil {
 		return nil, err
 	}
-	if device.UserID != userID {
-		return nil, errors.New("device does not belong to this user")
+
+	deviceSigned := device.PublicKey != nil && *device.PublicKey != ""
+	resp := &model.VerifySignatureResponse{
+		DeviceID:     device.DeviceID,
+		UserID:       device.UserID,
+		Verified:     false,
+		Message:      "",
+		Status:       device.Status,
+		DeviceSigned: deviceSigned,
 	}
+
+	if resp.Status != model.StatusActive {
+		resp.Message = "device is not active"
+		return resp, nil
+	}
+
+	if device.UserID != userID {
+		resp.Message = "device does not belong to this user"
+		return resp, nil
+	}
+
 	// 1. Anti-replay : nonce déjà vu ?
 	seen, _ := s.deviceSvc.cache.GetNonce(ctx, nonce)
 	if seen {
-		return nil, attestation.ErrReplayAttack
+		resp.Message = "nonce already used"
+		resp.Verified = false
+		return resp, nil
 	}
 
 	// 2. Fenêtre de timestamp
 	ts, err := time.Parse(time.RFC3339, timestamp)
 	if err != nil || time.Since(ts) > signatureWindow {
-		return nil, attestation.ErrTimestampOutOfWindow
+		resp.Message = "timestamp out of window"
+		return resp, nil
 	}
 
 	if device.PublicKey == nil {
-		return nil, errors.New("device has no registered key")
+		resp.Message = "device has no registered key, skipping signature verification"
+		return resp, nil
 	}
 
 	// 3. Vérifier la signature (toujours software, car hardware_level supprimé)
@@ -140,7 +162,8 @@ func (s *AttestationService) VerifyRequestSignature(
 		s.logger.Warn("request signature verification failed",
 			zap.String("device_id", deviceID),
 			zap.Error(err))
-		return nil, err
+		resp.Message = "request signature verification failed"
+		return resp, nil
 	}
 
 	// 4. Consommer le nonce
@@ -148,60 +171,13 @@ func (s *AttestationService) VerifyRequestSignature(
 
 	// 5. Mettre à jour last_seen
 	_ = s.deviceSvc.repo.UpdateLastSeen(ctx, deviceID)
-	resp := &model.VerifySignatureResponse{
-		DeviceID: device.ID,
-		UserID:   device.UserID,
-		Verified: false,
-		Message: "",
-	}
-	
-	if device.Status == model.StatusActive {
-		resp.Verified = true
-	} else {
+
+	if device.Status != model.StatusActive {
 		resp.Message = "device is not active"
 	}
+
+	resp.Verified = true
 	return resp, nil
-}
-
-// ─── Hardware Level Policy ──────────────────────────────────────────────────
-
-// UpgradeKey permet à un device de changer sa clé publique (preuve de possession de l'ancienne clé requise).
-func (s *AttestationService) UpgradeKey(
-	ctx context.Context,
-	deviceID, userID string,
-	newPublicKey, newKeyAlgorithm, newProviderName string,
-	oldNonce, oldTimestamp, oldSignature string,
-) error {
-	// 1. Récupérer le device
-	device, err := s.deviceSvc.repo.GetByDeviceID(ctx, deviceID)
-	if err != nil {
-		return err
-	}
-	if device.UserID != userID {
-		return errors.New("device does not belong to this user")
-	}
-	if device.Status != "active" {
-		return errors.New("device is not active")
-	}
-
-	// 2. Vérifier la preuve de possession de l'ancienne clé
-	if device.PublicKey != nil && *device.PublicKey != "" {
-		if _, err := s.VerifyRequestSignature(ctx, deviceID, oldNonce, oldTimestamp, oldSignature, userID); err != nil {
-			return fmt.Errorf("old key proof of possession failed: %w", err)
-		}
-	}
-
-	// 3. Mettre à jour la clé
-	if err := s.deviceSvc.repo.UpgradeKey(ctx, deviceID, newPublicKey, newKeyAlgorithm, newProviderName); err != nil {
-		return err
-	}
-
-	_ = s.deviceSvc.cache.InvalidateDevice(ctx, deviceID)
-
-	s.logger.Info("device key upgraded",
-		zap.String("device_id", deviceID))
-
-	return nil
 }
 
 // RecordReattestation enregistre une re-attestation réussie

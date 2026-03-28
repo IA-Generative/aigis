@@ -128,97 +128,58 @@ func (h *AttestationHandler) Verify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var resp *model.VerifyResponse = &model.VerifyResponse{
-		DeviceID: req.DeviceID,
-		UserID:   userID,
-		Verified: false, // par défaut à false, passe à true si vérification réussie
-		Message:  "",
-		Code:     401,
+	vrsr, err := h.attestSvc.VerifyRequestSignature(
+		r.Context(),
+		req.DeviceID,
+		req.Nonce,
+		req.Timestamp,
+		req.Signature,
+		userID,
+	)
+
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			jsonError(w, "device not found", http.StatusNotFound)
+			return
+		}
 	}
 
-	if req.Nonce == "" || req.Timestamp == "" || req.Signature == "" {
-		sr, err := h.deviceSvc.Status(r.Context(), req.DeviceID)
-		if err != nil {
-			resp.Code = http.StatusUnauthorized
+	code := http.StatusOK
 
-			if errors.Is(err, repository.ErrNotFound) {
-				resp.Message = "device not found"
-			} else {
-				resp.Message = "signature verification failed: " + err.Error()
-			}
-
-			h.logger.Error("failed to get device status",
-				zap.String("device_id", req.DeviceID),
-				zap.Error(err))
-		}
-		if sr.Signed {
-			resp.Code = http.StatusBadRequest
-			resp.Message = "nonce, timestamp and signature are required for this device"
-		}
-		if sr.Status == model.StatusActive {
-			resp.Verified = true
-			resp.Message = "device is active but has no registered key, skipping signature verification"
-			resp.Code = http.StatusOK
-		} else {
-			resp.Message = "device is not active"
-			resp.Code = http.StatusUnauthorized
-		}
+	if vrsr.DeviceSigned && !vrsr.Verified {
+		code = http.StatusUnauthorized
+	} else if vrsr.Status != model.StatusActive {
+		code = http.StatusForbidden
 	} else {
-		vrsr, err := h.attestSvc.VerifyRequestSignature(
-			r.Context(),
-			req.DeviceID,
-			req.Nonce,
-			req.Timestamp,
-			req.Signature,
-			userID,
-		)
-
-		if err != nil {
-			h.logger.Warn("signature verification failed",
-				zap.String("device_id", req.DeviceID),
-				zap.Error(err))
-			resp.Message = "signature verification failed: " + err.Error()
-			resp.Code = http.StatusUnauthorized
-		}
-		if vrsr.Verified {
-			resp.Message = "signature verified, device is active"
-			resp.Code = http.StatusOK
-			resp.Verified = true
-		} else {
-			resp.Message = vrsr.Message
-			resp.Code = http.StatusUnauthorized
-		}
+		code = http.StatusOK
 	}
 
 	// Recalculate trust score after successful verification
 	trustResp, err := h.riskSvc.ComputeTrustScore(r.Context(), req.DeviceID)
 	if err != nil {
-		resp.Message += "; failed to compute trust score: " + err.Error()
-		resp.Code = http.StatusInternalServerError
+		vrsr.Message += "; failed to compute trust score: " + err.Error()
+		code = http.StatusInternalServerError
 		h.logger.Warn("trust score computation failed after verify",
 			zap.String("device_id", req.DeviceID),
 			zap.Error(err))
 	}
 
 	if trustResp != nil {
-		resp.TrustScore = &trustResp.TrustScore
+		vrsr.TrustScore = &trustResp.TrustScore
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("X-User-ID", userID)
 	w.Header().Set("X-Device-ID", req.DeviceID)
-	w.Header().Set("X-Verified", strconv.FormatBool(resp.Verified))
-	if resp.TrustScore != nil {
-		w.Header().Set("X-Trust-Score", strconv.Itoa(*resp.TrustScore))
+	w.Header().Set("X-Verified", strconv.FormatBool(vrsr.Verified))
+	w.Header().Set("X-Device-Status", string(vrsr.Status))
+	w.Header().Set("X-Device-Signed", strconv.FormatBool(vrsr.DeviceSigned))
+
+	if vrsr.TrustScore != nil {
+		w.Header().Set("X-Trust-Score", strconv.Itoa(*vrsr.TrustScore))
 	}
 
-	w.WriteHeader(resp.Code)
-	json.NewEncoder(w).Encode(map[string]any{
-		"message": resp.Message,
-		"verified": resp.Verified,
-		"trust_score": *resp.TrustScore,
-		"device_id": resp.DeviceID,
-		"user_id": resp.UserID,
-	})
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(vrsr)
 }
 
 // POST /devices/{device_id}/reattest

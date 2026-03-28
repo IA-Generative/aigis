@@ -1,4 +1,7 @@
 export const DEVICE_SERVICE_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
+// export const DEVICE_SERVICE_BASE_URL = import.meta.env.PROXY_CALL === 'true' 
+// ? import.meta.env.VITE_API_URL
+// : 'http://localhost:5173/api'
 
 export async function apiFetch(url, options = {}) {
   const response = await fetch(url, options)
