@@ -309,3 +309,10 @@ adminer:
 
   # Pre-fill the Adminer default server field
   defaultServer: ""
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  scrapeTimeout: ""
+  path: /metrics
+  labels: {}
