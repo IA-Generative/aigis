@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func JWTAuth(jwksURL string, logger *zap.Logger) func(http.Handler) http.Handler {
+func JWTAuth(jwksURL string, logger *zap.Logger, mandatory bool) func(http.Handler) http.Handler {
 	// Chargement des clés JWKS (avec refresh automatique sur kid inconnu)
 	jwks, err := keyfunc.Get(jwksURL, keyfunc.Options{
 		RefreshErrorHandler: func(err error) {
@@ -27,7 +27,11 @@ func JWTAuth(jwksURL string, logger *zap.Logger) func(http.Handler) http.Handler
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
 			if !strings.HasPrefix(authHeader, "Bearer ") {
-				http.Error(w, `{"error":"missing token"}`, http.StatusUnauthorized)
+				if mandatory {
+					http.Error(w, `{"error":"missing token"}`, http.StatusUnauthorized)
+					return
+				}
+				next.ServeHTTP(w, r)
 				return
 			}
 

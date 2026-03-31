@@ -51,21 +51,23 @@ func main() {
 	defer rdb.Close()
 
 	// Layers
-	repo := repository.NewDeviceRepository(pg)
+	deviceRepo := repository.NewDeviceRepository(pg)
+	tokenRepo := repository.NewTokenRepository(pg)
 	emailSvc := service.NewEmailService(
 		cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPFrom,
 		service.SMTPAuthType(cfg.SMTPAuthType),
 		cfg.SMTPUsername, cfg.SMTPPassword,
 		service.SMTPEncryption(cfg.SMTPEncryption),
 	)
-	deviceSvc := service.NewDeviceServiceWithConfig(repo, rdb, emailSvc, logger, cfg)
+	deviceSvc := service.NewDeviceServiceWithConfig(deviceRepo, rdb, emailSvc, logger, cfg)
 	attestSvc := service.NewAttestationService(deviceSvc, logger)
 	riskSvc := service.NewRiskService(deviceSvc, cfg, logger)
+	tokenSvc := service.NewTokenServiceWithConfig(tokenRepo, rdb, emailSvc, logger, cfg)
 
 	probeHandler := handler.NewProbeHandler(pg, rdb, logger)
 	discoverHandler := handler.NewDiscoverHandler(cfg, deviceSvc)
 	deviceHandler := handler.NewDeviceHandler(deviceSvc, attestSvc, riskSvc, cfg, logger)
-	attestHandler := handler.NewAttestationHandler(attestSvc, deviceSvc, riskSvc, logger)
+	attestHandler := handler.NewAttestationHandler(attestSvc, deviceSvc, tokenSvc, riskSvc, logger)
 
 	// Router
 	r := chi.NewRouter()
@@ -78,7 +80,7 @@ func main() {
 			return r.Method != "OPTIONS"
 		},
 	}))
-	
+
 	r.Use(authmw.CORS(authmw.CORSOptions{
 		AllowedOrigins:   cfg.CORSAllowedOrigins,
 		AllowedMethods:   cfg.CORSAllowedMethods,
@@ -94,35 +96,52 @@ func main() {
 	// Kubernetes probes (pas d'auth)
 	r.Get("/healthz", probeHandler.Liveness)
 	r.Get("/readyz", probeHandler.Readiness)
-	r.Get("/api/discover", discoverHandler.Discover)	
+	r.Get("/api/discover", discoverHandler.Discover)
 	r.Handle("/metrics", metrics.Handler())
 
 	// Device endpoints (JWT requis)
-	r.Group(func(r chi.Router) {
-		r.Use(authmw.JWTAuth(cfg.JWKSEndpoint, logger))
+	deviceRouter := chi.NewRouter()
+	deviceRouter.Group(func(r chi.Router) {
+		r.Use(authmw.JWTAuth(cfg.JWKSEndpoint, logger, true))
 		r.Use(authmw.DeviceAuthExtract(logger))
 
-		r.Get("/api/devices/{device_id}/status", deviceHandler.Status)
-		r.Post("/api/devices/register", deviceHandler.Register)
-		r.Post("/api/devices/register/challenge", attestHandler.RegisterChallenge)
-		r.Get("/api/devices/{device_id}", deviceHandler.Get)
-		r.Get("/api/me/devices", deviceHandler.ListMine)
-		r.Get("/api/me/devices/pending", deviceHandler.ListPending)
-		r.Get("/api/me/events", deviceHandler.Events)
-		r.Get("/api/users/{user_id}/devices", deviceHandler.ListByUser)
-		r.Post("/api/devices/{device_id}/revoke", deviceHandler.Revoke)
-		r.Post("/api/devices/{device_id}/approve", deviceHandler.Approve)
-		r.Post("/api/devices/{device_id}/reject", deviceHandler.Reject)
-		r.Post("/api/me/devices/{device_id}/verify-email", deviceHandler.VerifyEmail)
-		r.Post("/api/me/devices/{device_id}/renew-code", deviceHandler.RenewCode)
+		r.Get("/{device_id}/status", deviceHandler.Status)
+		r.Post("/register", deviceHandler.Register)
+		r.Post("/register/challenge", attestHandler.RegisterChallenge)
+		r.Get("/{device_id}", deviceHandler.Get)
+		r.Post("/{device_id}/revoke", deviceHandler.Revoke)
+		r.Post("/{device_id}/approve", deviceHandler.Approve)
+		r.Post("/{device_id}/reject", deviceHandler.Reject)
 
 		// Attestation endpoints
-		r.Post("/api/devices/{device_id}/challenge", attestHandler.Challenge)
-		r.Post("/api/devices/verify", attestHandler.Verify)
-		r.Get("/api/devices/verify", attestHandler.Verify)
-		r.Post("/api/devices/{device_id}/reattest", attestHandler.Reattest)
-		r.Get("/api/devices/{device_id}/trust", attestHandler.TrustScore)
+		r.Post("/{device_id}/challenge", attestHandler.Challenge)
+		r.Post("/{device_id}/reattest", attestHandler.Reattest)
+		r.Get("/{device_id}/trust", attestHandler.TrustScore)
 	})
+
+	personalRouter := chi.NewRouter()
+	personalRouter.Group(func(r chi.Router) {
+		r.Use(authmw.JWTAuth(cfg.JWKSEndpoint, logger, true))
+		r.Use(authmw.DeviceAuthExtract(logger))
+
+		r.Get("/devices", deviceHandler.ListMine)
+		r.Get("/devices/pending", deviceHandler.ListPending)
+		r.Get("/events", deviceHandler.Events)
+		r.Post("/devices/{device_id}/verify-email", deviceHandler.VerifyEmail)
+		r.Post("/devices/{device_id}/renew-code", deviceHandler.RenewCode)
+	})
+
+	r.Group(func(r chi.Router) {
+		r.Use(authmw.JWTAuth(cfg.JWKSEndpoint, logger, false))
+		r.Use(authmw.DeviceAuthExtract(logger))
+		r.Use(authmw.TokenAuthExtract(logger))
+
+		r.Post("/api/verify", attestHandler.Verify)
+		r.Get("/api/verify", attestHandler.Verify)
+	})
+
+	r.Mount("/api/devices", deviceRouter)
+	r.Mount("/api/me", personalRouter)
 
 	// If the frontend was embedded into the pod/image, prepare a cached
 	// copy at startup. This copies the static files into a cache directory,
@@ -199,7 +218,7 @@ func prepareIdxHtml(srcDir string, logger *zap.Logger) (string, error) {
 		return "", errors.New("Unable to find index.html")
 	}
 	content := string(data)
-	script := "<script>"+envJS+"</script>"
+	script := "<script>" + envJS + "</script>"
 	lower := strings.ToLower(content)
 	pos := strings.Index(lower, "</head>")
 	if pos != -1 {

@@ -67,7 +67,7 @@ export function useDeviceApi() {
 
   const verifyDevice = async (deviceId) => {
     const signature = await makeSignature()
-    return apiFetch(`${DEVICE_SERVICE_BASE_URL}/devices/verify`, {
+    return apiFetch(`${DEVICE_SERVICE_BASE_URL}/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...await authHeader() },
       body: JSON.stringify({ 
@@ -84,10 +84,17 @@ export function useDeviceApi() {
       body: JSON.stringify(payload)
     })
 
-  const callAuth = async () =>
-    apiFetch(`${DEVICE_SERVICE_BASE_URL}/devices/verify`, {
+  const verifyDeviceByHeaders = async () =>
+    apiFetch(`${DEVICE_SERVICE_BASE_URL}/verify`, {
       method: 'GET',
       headers: await authHeader(true),
+    })
+
+  const verifyDeviceByApiKey = async (apiKey: string) =>
+    apiFetch(`${DEVICE_SERVICE_BASE_URL}/verify`, {
+      method: 'GET',
+      headers: { 'x-api-key': apiKey },
+      
     })
 
   return { 
@@ -102,7 +109,8 @@ export function useDeviceApi() {
     verifyEmailCode,
     verifyDevice,
     reattest,
-    callAuth,
+    verifyDeviceByHeaders,
     renewEmailCode,
+    verifyDeviceByApiKey,
   }
 }

@@ -43,6 +43,7 @@
         <StatusButton @data="(data) => debugData = data" />
         <HeadersButton @data="(data) => debugData = data" />
         <VerifyButton @data="(data) => debugData = data" />
+        <ApiKeyForm @data="(data) => debugData = data" />
       </div>
 
       <StatusBanner v-if="deviceStatusMsg" :type="deviceStatusType" :message="deviceStatusMsg" />

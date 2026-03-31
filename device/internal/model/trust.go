@@ -110,7 +110,7 @@ func computeBreakdown(device *Device, params TrustParams) TrustBreakdown {
 
 	// ── 6. Status (−20 to +5 points) ──────────────────────────────
 	switch device.Status {
-	case StatusActive:
+	case DeviceActive:
 		bd.StatusPoints = 5
 	default:
 		bd.StatusPoints = -100

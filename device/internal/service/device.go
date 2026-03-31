@@ -73,7 +73,7 @@ func (s *DeviceService) resolveRegistration(ctx context.Context, req model.Regis
 			s.logger.Info("first device — auto-approved",
 				zap.String("user_id", req.UserID))
 			return &RegistrationDecision{
-				InitialStatus:         model.StatusActive,
+				InitialStatus:         model.DeviceActive,
 				ApprovedBy:            "auto:first_device",
 				SendEmailChallenge:    false,
 				NotifyExistingDevices: false,
@@ -88,7 +88,7 @@ func (s *DeviceService) resolveRegistration(ctx context.Context, req model.Regis
 				zap.String("user_id", req.UserID),
 				zap.String("acr", req.Acr))
 			return &RegistrationDecision{
-				InitialStatus:         model.StatusActive,
+				InitialStatus:         model.DeviceActive,
 				ApprovedBy:            "acr:" + req.Acr,
 				SendEmailChallenge:    false,
 				NotifyExistingDevices: false,
@@ -105,7 +105,7 @@ func (s *DeviceService) resolveRegistration(ctx context.Context, req model.Regis
 		zap.Any("approval_methods", cfg.ApprovalMethods))
 
 	return &RegistrationDecision{
-		InitialStatus:         model.StatusPendingApproval,
+		InitialStatus:         model.DevicePendingApproval,
 		SendEmailChallenge:    hasEmail && cfg.HasApprovalMethod(config.ApprovalEmail),
 		NotifyExistingDevices: cfg.HasApprovalMethod(config.ApprovalCrossDevice),
 	}, nil
@@ -169,9 +169,9 @@ func (s *DeviceService) Register(ctx context.Context, req model.RegisterRequest)
 		s.logger.Error("failed to create device", zap.Error(err))
 		return nil, err
 	}
-	
+
 	s.ApplyRegistrationDecision(ctx, decision, *device, req)
-	
+
 	s.logger.Info("device registered",
 		zap.String("device_id", device.DeviceID),
 		zap.String("status", string(initialStatus)),
@@ -196,7 +196,7 @@ func (s *DeviceService) RenewOTPCode(ctx context.Context, req model.RenewCodeReq
 		return repository.ErrNotFound
 	}
 
-	if device.Status != model.StatusPendingApproval {
+	if device.Status != model.DevicePendingApproval {
 		return errors.New("device is not in pending approval")
 	}
 
@@ -322,7 +322,7 @@ func (s *DeviceService) RegisterWithKey(
 
 	device := &model.Device{
 		DeviceID: uuid.New().String(),
-		Status:   model.StatusActive,
+		Status:   model.DeviceActive,
 		// Attestation
 		PublicKey:    &attestInfo.PublicKeyPEM,
 		KeyAlgorithm: &attestInfo.KeyAlgorithm,
@@ -368,7 +368,7 @@ func (s *DeviceService) ApproveDevice(ctx context.Context, deviceID, approverDev
 	if pendingDevice.UserID != userID {
 		return errors.New("device does not belong to this user")
 	}
-	if pendingDevice.Status != model.StatusPendingApproval {
+	if pendingDevice.Status != model.DevicePendingApproval {
 		return errors.New("device is not pending approval")
 	}
 
@@ -380,7 +380,7 @@ func (s *DeviceService) ApproveDevice(ctx context.Context, deviceID, approverDev
 	if approver.UserID != userID {
 		return errors.New("approver device does not belong to this user")
 	}
-	if approver.Status != model.StatusActive {
+	if approver.Status != model.DeviceActive {
 		return errors.New("approver device is not active")
 	}
 
@@ -419,7 +419,7 @@ func (s *DeviceService) ValidateEmailChallenge(ctx context.Context, deviceID, us
 	if device.UserID != userID {
 		return errors.New("device does not belong to this user")
 	}
-	if device.Status != model.StatusPendingApproval {
+	if device.Status != model.DevicePendingApproval {
 		return errors.New("device is not pending approval")
 	}
 
@@ -461,7 +461,7 @@ func (s *DeviceService) RejectDevice(ctx context.Context, deviceID, userID strin
 	if pendingDevice.UserID != userID {
 		return errors.New("device does not belong to this user")
 	}
-	if pendingDevice.Status != model.StatusPendingApproval {
+	if pendingDevice.Status != model.DevicePendingApproval {
 		return errors.New("device is not pending approval")
 	}
 

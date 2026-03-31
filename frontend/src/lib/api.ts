@@ -3,7 +3,7 @@ export const DEVICE_SERVICE_BASE_URL = window.__ENV?.VITE_API_URL ?? import.meta
 // ? import.meta.env.VITE_API_URL
 // : 'http://localhost:5173/api'
 
-export async function apiFetch(url, options = {}) {
+export async function apiFetch(url, options: RequestInit = {}) {
   const response = await fetch(url, options)
   if (!response.ok) {
     let body = ''

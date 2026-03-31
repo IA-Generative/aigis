@@ -84,7 +84,7 @@ func Load() *Config {
 		// CORS
 		CORSAllowedOrigins:   parseCSV(getEnv("CORS_ALLOWED_ORIGINS", "*")),
 		CORSAllowedMethods:   parseCSV(getEnv("CORS_ALLOWED_METHODS", "GET,POST,PUT,PATCH,DELETE,OPTIONS")),
-		CORSAllowedHeaders:   parseCSV(getEnv("CORS_ALLOWED_HEADERS", "Accept,Authorization,Content-Type,Origin,X-Device-ID,X-Device-Nonce,X-Device-Timestamp,X-Device-Signature")),
+		CORSAllowedHeaders:   parseCSV(getEnv("CORS_ALLOWED_HEADERS", "Accept,Authorization,Content-Type,Origin,X-Device-ID,X-Device-Nonce,X-Device-Timestamp,X-Device-Signature,X-API-KEY")),
 		CORSExposedHeaders:   parseCSV(getEnv("CORS_EXPOSED_HEADERS", "")),
 		CORSAllowCredentials: parseBool(getEnv("CORS_ALLOW_CREDENTIALS", "true"), true),
 		CORSMaxAgeSeconds:    parseInt(getEnv("CORS_MAX_AGE_SECONDS", "300"), 300),

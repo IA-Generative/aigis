@@ -2,16 +2,17 @@ package model
 
 import (
 	"time"
+
 	cfg "github.com/ia-generative/device-service/internal/config"
 )
 
 type DeviceStatus string
 
 const (
-	StatusActive          DeviceStatus = "active"
-	StatusSuspended       DeviceStatus = "suspended"
-	StatusRevoked         DeviceStatus = "revoked"
-	StatusPendingApproval DeviceStatus = "pending_approval"
+	DeviceActive          DeviceStatus = "active"
+	DeviceSuspended       DeviceStatus = "suspended"
+	DeviceRevoked         DeviceStatus = "revoked"
+	DevicePendingApproval DeviceStatus = "pending_approval"
 )
 
 type Device struct {
@@ -69,18 +70,18 @@ type RegisterRequest struct {
 }
 
 type RenewCodeRequest struct {
-	UserID       string `json:"user_id"`
-	DeviceID     string `json:"device_id"`
+	UserID   string `json:"user_id"`
+	DeviceID string `json:"device_id"`
 	// Email (extracted from JWT, not from request body)
 	Email string `json:"-"`
 }
 
 type StatusResponse struct {
-	DeviceID   string       `json:"device_id"`
-	UserID     string       `json:"user_id"`
-	TrustScore *int         `json:"trust_score"`
-	Status     DeviceStatus `json:"status"`
-	Signed     bool         `json:"device_signed"`
+	DeviceID        string               `json:"device_id"`
+	UserID          string               `json:"user_id"`
+	TrustScore      *int                 `json:"trust_score"`
+	Status          DeviceStatus         `json:"status"`
+	Signed          bool                 `json:"device_signed"`
 	ApprovalMethods []cfg.ApprovalMethod `json:"approval_methods,omitempty"`
 }
 
@@ -99,13 +100,13 @@ type VerifyResponse struct {
 // }
 
 type VerifySignatureResponse struct {
-	DeviceID     string       `json:"device_id"`
-	UserID       string       `json:"user_id"`
-	TrustScore   *int         `json:"trust_score"`
-	Status       DeviceStatus `json:"status"`
-	DeviceSigned bool         `json:"device_signed"` // si le divice a une clé enregistrée
-	Message      string       `json:"message"`
-	Verified     bool         `json:"verified"`
+	DeviceID     string `json:"device_id"`
+	UserID       string `json:"user_id"`
+	TrustScore   *int   `json:"trust_score"`
+	Status       string `json:"status"`
+	DeviceSigned bool   `json:"device_signed"` // si le divice a une clé enregistrée
+	Message      string `json:"message"`
+	Verified     bool   `json:"verified"`
 }
 
 type RevokeRequest struct {
@@ -172,15 +173,15 @@ type DeviceSignatureHeaders struct {
 
 // RegisterResponse est la réponse enrichie du register
 type RegisterResponse struct {
-	DeviceID   string       `json:"device_id"`
-	Status     DeviceStatus `json:"device_status"`
-	Message    string       `json:"message"`
-	TrustScore int          `json:"trust_score"`
+	DeviceID        string               `json:"device_id"`
+	Status          DeviceStatus         `json:"device_status"`
+	Message         string               `json:"message"`
+	TrustScore      int                  `json:"trust_score"`
 	ApprovalMethods []cfg.ApprovalMethod `json:"approval_methods,omitempty"`
 }
 
 type RenewCodeResponse struct {
-	Message    string       `json:"message"`
+	Message string `json:"message"`
 }
 
 // EmailChallengeRequest pour valider le code email

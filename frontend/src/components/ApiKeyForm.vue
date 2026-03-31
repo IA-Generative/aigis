@@ -12,24 +12,16 @@
       </button>
     </div>
   </div>
-  <div class="button-row">
-    <input type="text" name="apikey" id="apikey" v-model="apiKey" placeholder="Enter API Key" />
-    <button :disabled="!apiKey" @click="callWithApiKey">
-      API Key
-    </button>
-  </div>
 </template>
 
 <script setup lang="ts">
 import { useDeviceApi } from '@/composables/useDeviceApi';
 import { useDeviceStore } from '@/stores/device';
-import { ref } from 'vue';
 
 const emits = defineEmits<{
   data: [data: any]
 }>()
 
-const apiKey = ref('');
 const api = useDeviceApi()
 const device = useDeviceStore()
 const deviceApi = useDeviceApi()
@@ -47,16 +39,6 @@ async function callWithBody() {
 async function callWithHeaders() {
   try {
     const response = await deviceApi.verifyDeviceByHeaders()
-    emits('data', await response)
-  } catch (err) {
-    emits('data', err.message ?? String(err))
-    console.error('API Auth Call Error:', err)
-  }
-}
-
-async function callWithApiKey() {
-  try {
-    const response = await deviceApi.verifyDeviceByApiKey(apiKey.value)
     emits('data', await response)
   } catch (err) {
     emits('data', err.message ?? String(err))

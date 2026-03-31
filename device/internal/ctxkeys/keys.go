@@ -8,6 +8,7 @@ const (
 	DeviceNonce     contextKey = "device_nonce"
 	DeviceTimestamp contextKey = "device_timestamp"
 	DeviceSignature contextKey = "device_signature"
+	Token           contextKey = "token"
 	Email           contextKey = "email"
 	Acr             contextKey = "acr"
 )

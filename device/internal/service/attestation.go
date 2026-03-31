@@ -121,11 +121,11 @@ func (s *AttestationService) VerifyRequestSignature(
 		UserID:       device.UserID,
 		Verified:     false,
 		Message:      "",
-		Status:       device.Status,
+		Status:       string(device.Status),
 		DeviceSigned: deviceSigned,
 	}
 
-	if resp.Status != model.StatusActive {
+	if resp.Status != string(model.DeviceActive) {
 		resp.Message = "device is not active"
 		return resp, nil
 	}
@@ -172,7 +172,7 @@ func (s *AttestationService) VerifyRequestSignature(
 	// 5. Mettre à jour last_seen
 	_ = s.deviceSvc.repo.UpdateLastSeen(ctx, deviceID)
 
-	if device.Status != model.StatusActive {
+	if resp.Status != string(model.DeviceActive) {
 		resp.Message = "device is not active"
 	}
 

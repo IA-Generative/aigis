@@ -69,10 +69,10 @@ func (h *DeviceHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	if h.cfg.RequireDeviceSignature &&
 		(registerReq.PublicKey == "" ||
-		 registerReq.Challenge == "" ||
-		 registerReq.ChallengeSignature == "" ||
-		 registerReq.KeyAlgorithm == "" ||
-		 registerReq.ProviderName == ""	) {
+			registerReq.Challenge == "" ||
+			registerReq.ChallengeSignature == "" ||
+			registerReq.KeyAlgorithm == "" ||
+			registerReq.ProviderName == "") {
 		resp := model.RegisterResponse{
 			Message: "device signature required",
 		}
@@ -133,7 +133,7 @@ func (h *DeviceHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 		// Calculer le trust score initial (seulement pour les devices actifs)
 		var trustScore int
-		if device.Status == model.StatusActive {
+		if device.Status == model.DeviceActive {
 			trustResp, err := h.riskSvc.ComputeTrustScore(r.Context(), device.DeviceID)
 			if err != nil {
 				h.logger.Warn("failed to compute initial trust score",
@@ -145,12 +145,12 @@ func (h *DeviceHandler) Register(w http.ResponseWriter, r *http.Request) {
 		}
 
 		resp := model.RegisterResponse{
-			Status:      device.Status,
-			Message:     "device created",
+			Status:     device.Status,
+			Message:    "device created",
 			DeviceID:   device.DeviceID,
 			TrustScore: trustScore,
 		}
-		if device.Status == model.StatusPendingApproval {
+		if device.Status == model.DevicePendingApproval {
 			resp.Message = "device pending approval from an existing trusted device"
 			resp.ApprovalMethods = h.svc.GetDevicePendingApprovalMethods()
 		}
@@ -162,25 +162,25 @@ func (h *DeviceHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			resp := model.RegisterResponse{
-				Message:   "device not found",
+				Message:  "device not found",
 				DeviceID: req.DeviceID,
 			}
 			jsonResponse(w, resp, http.StatusNotFound)
 			return
 		}
 		resp := model.RegisterResponse{
-			Message:   "internal error",
+			Message:  "internal error",
 			DeviceID: req.DeviceID,
 		}
 		jsonResponse(w, resp, http.StatusInternalServerError)
 		return
 	}
 
-	if device.Status == model.StatusActive {
+	if device.Status == model.DeviceActive {
 		_ = h.svc.TouchLastSeen(r.Context(), req.DeviceID)
 		resp := model.RegisterResponse{
-			Status:    device.Status,
-			Message:   "device active, timestamp updated",
+			Status:   device.Status,
+			Message:  "device active, timestamp updated",
 			DeviceID: req.DeviceID,
 		}
 		jsonResponse(w, resp, http.StatusOK)
@@ -188,17 +188,17 @@ func (h *DeviceHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := model.RegisterResponse{
-		Status:    device.Status,
+		Status:   device.Status,
 		DeviceID: req.DeviceID,
 	}
 	switch device.Status {
-	case model.StatusRevoked:
+	case model.DeviceRevoked:
 		resp.Message = "device revoked"
 		jsonResponse(w, resp, http.StatusConflict)
-	case model.StatusSuspended:
+	case model.DeviceSuspended:
 		resp.Message = "device suspended"
 		jsonResponse(w, resp, http.StatusConflict)
-	case model.StatusPendingApproval:
+	case model.DevicePendingApproval:
 		resp.Message = "device pending approval"
 		jsonResponse(w, resp, http.StatusAccepted)
 	default:
@@ -233,8 +233,8 @@ func (h *DeviceHandler) RenewCode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	renewCodereq := model.RenewCodeRequest{
-		UserID:             userID,
-		DeviceID:           req.DeviceID,
+		UserID:   userID,
+		DeviceID: req.DeviceID,
 	}
 
 	// Extract email from JWT context (Architecture B — email challenge)
@@ -298,23 +298,10 @@ func (h *DeviceHandler) Status(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if sr.Status == model.StatusPendingApproval {
+	if sr.Status == model.DevicePendingApproval {
 		sr.ApprovalMethods = h.svc.GetDevicePendingApprovalMethods()
 	}
 	jsonResponse(w, sr, http.StatusOK)
-}
-
-// GET /users/{user_id}/devices
-func (h *DeviceHandler) ListByUser(w http.ResponseWriter, r *http.Request) {
-	userID := chi.URLParam(r, "user_id")
-
-	devices, err := h.svc.ListByUser(r.Context(), userID)
-	if err != nil {
-		jsonError(w, "internal error", http.StatusInternalServerError)
-		return
-	}
-
-	jsonResponse(w, devices, http.StatusOK)
 }
 
 // GET /me/devices
