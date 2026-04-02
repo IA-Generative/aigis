@@ -3,8 +3,10 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -97,182 +99,123 @@ func (h *AttestationHandler) Challenge(w http.ResponseWriter, r *http.Request) {
 // POST /verify
 // Vérifie une signature sur un challenge (device-bound session proof)
 func (h *AttestationHandler) Verify(w http.ResponseWriter, r *http.Request) {
-	if _, ok := r.Context().Value(ctxkeys.Token).(string); ok {
-		h.VerifyToken(w, r)
-		return
+	var code int
+	var resp model.VerifyResponse
+	var errorMessage error
+
+	if token := r.Header.Get(string(ctxkeys.HeaderXApiKey)); token != "" {
+		code, errorMessage = h.VerifyToken(w, r, &resp)
+	} else {
+		code, errorMessage = h.VerifyDevice(w, r, &resp)
 	}
-	h.VerifyDevice(w, r)
+
+	w.Header().Set("Content-Type", "application/json")
+	h.logger.Info("verification attempt", zap.Any("resp", resp))
+	if resp.UserID != nil {
+		w.Header().Set(string(ctxkeys.HeaderXUserID), *resp.UserID)
+	}
+	if resp.DeviceID != nil {
+		w.Header().Set(string(ctxkeys.HeaderXDeviceID), *resp.DeviceID)
+	}
+	if resp.ServiceID != nil {
+		w.Header().Set(string(ctxkeys.HeaderXServiceID), *resp.ServiceID)
+	}
+	w.Header().Set(string(ctxkeys.HeaderXVerified), strconv.FormatBool(resp.Verified))
+	w.Header().Set(string(ctxkeys.HeaderXDeviceStatus), resp.Status)
+	if resp.DeviceSigned != nil {
+		w.Header().Set(string(ctxkeys.HeaderXDeviceSigned), strconv.FormatBool(*resp.DeviceSigned))
+	}
+	if resp.TrustScore != nil {
+		w.Header().Set(string(ctxkeys.HeaderXTrustScore), strconv.Itoa(*resp.TrustScore))
+	}
+
+	if errorMessage != nil {
+		jsonError(w, errorMessage.Error(), code)
+	} else {
+		jsonResponse(w, resp, code)
+	}
 }
 
-func (h *AttestationHandler) VerifyToken(w http.ResponseWriter, r *http.Request) {
-	h.logger.Debug("verify endpoint called",
-		zap.String("method", r.Method),
-		zap.String("url", r.URL.String()),
-		zap.Any("headers", r.Header))
+func (h *AttestationHandler) VerifyToken(w http.ResponseWriter, r *http.Request, response *model.VerifyResponse) (code int, errMessage error) {
+	tokenHeader := r.Header.Get(string(ctxkeys.HeaderXApiKey))
+	if tokenHeader == "" {
+		return http.StatusUnauthorized, errors.New("missing token")
+	}
 
-	if tokenHeader, ok := r.Context().Value(ctxkeys.Token).(string); ok {
-		h.logger.Debug("verifying token from context", zap.String("token", tokenHeader))
-		token, err := h.tokenSvc.GetByKey(r.Context(), tokenHeader)
+	token, err := h.tokenSvc.GetByKey(tokenHeader)
+
+	if err != nil {
+		if errors.Is(err, repository.ErrTokenNotFound) {
+			return http.StatusUnauthorized, errors.New("token not found")
+		}
+		h.logger.Error("failed to get token by key",
+			zap.String("token", tokenHeader),
+			zap.Error(err))
+		return http.StatusInternalServerError, errors.New("internal error")
+	}
+
+	if token.Status != model.TokenActive {
+		return http.StatusUnauthorized, errors.New("token is not active")
+	}
+
+	// valeur en BDD : {127.0.0.1,192.168.1.1/24}"
+	// exemple de valeur retournée par la BDD en string : "{127.0.0.1,192.168.1.1/24}"
+	// conversion de string en []string -> net.IPNet pour vérification
+	IPWhitelist := strings.TrimLeft(*token.IPWhitelist, "{")
+	IPWhitelist = strings.TrimRight(IPWhitelist, "}")
+	ipList := strings.Split(IPWhitelist, ",")
+
+	if ok, err := ipCheck(r, ipList); !ok {
 		if err != nil {
-			if errors.Is(err, repository.ErrTokenNotFound) {
-				jsonError(w, "token not found", http.StatusUnauthorized)
-				return
-			}
-			h.logger.Error("failed to get token by key",
-				zap.String("token", tokenHeader),
-				zap.Error(err))
-			jsonError(w, "internal error", http.StatusInternalServerError)
-			return
+			h.logger.Error("failed to check IP", zap.Error(err))
+			return http.StatusInternalServerError, errors.New("internal error")
 		}
-		if token.Status != model.TokenActive {
-			jsonError(w, "token is not active", http.StatusUnauthorized)
-			return
-		}
-		w.Header().Set("X-User-ID", token.UserID)
-		VerifySignatureResponse := &model.VerifySignatureResponse{
-			UserID:       token.UserID,
-			Verified:     true,
-			Message:      "token valid",
-			Status:       string(model.DeviceActive),
-			DeviceSigned: false,
-		}
-		jsonResponse(w, VerifySignatureResponse, http.StatusOK)
-		return
+		return http.StatusUnauthorized, errors.New("IP not allowed")
 	}
 
-	userID, ok := r.Context().Value(ctxkeys.UserID).(string)
-	if !ok || userID == "" {
-		jsonError(w, "unauthorized", http.StatusUnauthorized)
-		return
+	serviceID := token.ID
+	if token.Name != nil && *token.Name != "" {
+		serviceID = *token.Name
 	}
+	response.ServiceID = &serviceID
+	response.Verified = true
+	response.Message = "token valid"
+	response.Status = string(model.TokenActive)
 
-	var req model.VerifyChallengeRequest
-	// parse JSON body if present, otherwise fallback to headers (for GET requests or clients that can't send JSON)
-	if r.Method == http.MethodPost && r.Body != nil {
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			jsonError(w, "invalid request body", http.StatusBadRequest)
-			return
-		}
-	}
-	w.Header().Add("X-User-ID", userID)
-
-	if req.Nonce == "" {
-		req.Nonce = r.Context().Value(ctxkeys.DeviceNonce).(string)
-	}
-	if req.Timestamp == "" {
-		req.Timestamp = r.Context().Value(ctxkeys.DeviceTimestamp).(string)
-	}
-	if req.Signature == "" {
-		req.Signature = r.Context().Value(ctxkeys.DeviceSignature).(string)
-	}
-	if req.DeviceID == "" {
-		req.DeviceID = r.Context().Value(ctxkeys.DeviceID).(string)
-	}
-
-	if req.DeviceID == "" {
-		jsonError(w, "device_id is required", http.StatusBadRequest)
-		return
-	}
-
-	h.logger.Debug("verify request details",
-		zap.String("device_id", req.DeviceID),
-		zap.String("nonce", req.Nonce),
-		zap.String("timestamp", req.Timestamp),
-		zap.String("signature", req.Signature))
-	vrsr, err := h.attestSvc.VerifyRequestSignature(
-		r.Context(),
-		req.DeviceID,
-		req.Nonce,
-		req.Timestamp,
-		req.Signature,
-		userID,
-	)
-
-	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			jsonError(w, "device not found", http.StatusNotFound)
-			return
-		}
-	}
-
-	code := http.StatusOK
-
-	if vrsr.DeviceSigned && !vrsr.Verified {
-		code = http.StatusUnauthorized
-	} else if vrsr.Status != string(model.DeviceActive) {
-		code = http.StatusForbidden
-	} else {
-		code = http.StatusOK
-	}
-
-	// Recalculate trust score after successful verification
-	trustResp, err := h.riskSvc.ComputeTrustScore(r.Context(), req.DeviceID)
-	if err != nil {
-		vrsr.Message += "; failed to compute trust score: " + err.Error()
-		code = http.StatusInternalServerError
-		h.logger.Warn("trust score computation failed after verify",
-			zap.String("device_id", req.DeviceID),
-			zap.Error(err))
-	}
-
-	if trustResp != nil {
-		vrsr.TrustScore = &trustResp.TrustScore
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("X-User-ID", userID)
-	w.Header().Set("X-Device-ID", req.DeviceID)
-	w.Header().Set("X-Verified", strconv.FormatBool(vrsr.Verified))
-	w.Header().Set("X-Device-Status", vrsr.Status)
-	w.Header().Set("X-Device-Signed", strconv.FormatBool(vrsr.DeviceSigned))
-
-	if vrsr.TrustScore != nil {
-		w.Header().Set("X-Trust-Score", strconv.Itoa(*vrsr.TrustScore))
-	}
-
-	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(vrsr)
+	return http.StatusOK, nil
 }
 
-func (h *AttestationHandler) VerifyDevice(w http.ResponseWriter, r *http.Request) {
+func (h *AttestationHandler) VerifyDevice(w http.ResponseWriter, r *http.Request, response *model.VerifyResponse) (code int, err error) {
 	userID, ok := r.Context().Value(ctxkeys.UserID).(string)
 	if !ok || userID == "" {
-		jsonError(w, "unauthorized", http.StatusUnauthorized)
-		return
+		return http.StatusUnauthorized, errors.New("unauthorized")
 	}
 
 	var req model.VerifyChallengeRequest
 	// parse JSON body if present, otherwise fallback to headers (for GET requests or clients that can't send JSON)
 	if r.Method == http.MethodPost && r.Body != nil {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			jsonError(w, "invalid request body", http.StatusBadRequest)
-			return
+			return http.StatusBadRequest, errors.New("invalid request body")
 		}
 	}
-	w.Header().Add("X-User-ID", userID)
 
 	if req.Nonce == "" {
-		req.Nonce = r.Context().Value(ctxkeys.DeviceNonce).(string)
+		req.Nonce = r.Header.Get(string(ctxkeys.HeaderXDeviceNonce))
 	}
 	if req.Timestamp == "" {
-		req.Timestamp = r.Context().Value(ctxkeys.DeviceTimestamp).(string)
+		req.Timestamp = r.Header.Get(string(ctxkeys.HeaderXDeviceTimestamp))
 	}
 	if req.Signature == "" {
-		req.Signature = r.Context().Value(ctxkeys.DeviceSignature).(string)
+		req.Signature = r.Header.Get(string(ctxkeys.HeaderXDeviceSignature))
 	}
 	if req.DeviceID == "" {
-		req.DeviceID = r.Context().Value(ctxkeys.DeviceID).(string)
+		req.DeviceID = r.Header.Get(string(ctxkeys.HeaderXDeviceID))
 	}
 
 	if req.DeviceID == "" {
-		jsonError(w, "device_id is required", http.StatusBadRequest)
-		return
+		return http.StatusBadRequest, errors.New("device_id is required")
 	}
 
-	h.logger.Debug("verify request details",
-		zap.String("device_id", req.DeviceID),
-		zap.String("nonce", req.Nonce),
-		zap.String("timestamp", req.Timestamp),
-		zap.String("signature", req.Signature))
 	vrsr, err := h.attestSvc.VerifyRequestSignature(
 		r.Context(),
 		req.DeviceID,
@@ -284,12 +227,11 @@ func (h *AttestationHandler) VerifyDevice(w http.ResponseWriter, r *http.Request
 
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			jsonError(w, "device not found", http.StatusNotFound)
-			return
+			return http.StatusNotFound, errors.New("device not found")
 		}
 	}
 
-	code := http.StatusOK
+	code = http.StatusOK
 
 	if vrsr.DeviceSigned && !vrsr.Verified {
 		code = http.StatusUnauthorized
@@ -309,22 +251,20 @@ func (h *AttestationHandler) VerifyDevice(w http.ResponseWriter, r *http.Request
 			zap.Error(err))
 	}
 
-	if trustResp != nil {
-		vrsr.TrustScore = &trustResp.TrustScore
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("X-User-ID", userID)
-	w.Header().Set("X-Device-ID", req.DeviceID)
-	w.Header().Set("X-Verified", strconv.FormatBool(vrsr.Verified))
-	w.Header().Set("X-Device-Status", vrsr.Status)
-	w.Header().Set("X-Device-Signed", strconv.FormatBool(vrsr.DeviceSigned))
-
 	if vrsr.TrustScore != nil {
-		w.Header().Set("X-Trust-Score", strconv.Itoa(*vrsr.TrustScore))
+		w.Header().Set(string(ctxkeys.HeaderXTrustScore), strconv.Itoa(*vrsr.TrustScore))
 	}
 
-	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(vrsr)
+	response.DeviceID = &req.DeviceID
+	response.UserID = &vrsr.UserID
+	response.Message = vrsr.Message
+	response.Verified = vrsr.Verified
+	response.Status = vrsr.Status
+	response.DeviceSigned = &vrsr.DeviceSigned
+	if trustResp != nil {
+		response.TrustScore = &trustResp.TrustScore
+	}
+	return code, nil
 }
 
 // POST /devices/{device_id}/reattest
@@ -413,4 +353,46 @@ func (h *AttestationHandler) TrustScore(w http.ResponseWriter, r *http.Request) 
 	}
 
 	jsonResponse(w, trustResp, http.StatusOK)
+}
+
+func ipCheck(r *http.Request, inets []string) (bool, error) {
+	ipList := filterEmpty(inets)
+	if len(ipList) == 0 {
+		return true, nil
+	}
+	ipStr := r.Header.Get(string(ctxkeys.HeaderXForwardedFor))
+	if ipStr == "" {
+		ipStr = r.RemoteAddr
+	}
+
+	for _, inet := range ipList {
+		if strings.Contains(inet, "/") {
+			_, ipNet, err := net.ParseCIDR(inet)
+			if err != nil {
+				return false, err
+			}
+			if ipNet.Contains(net.ParseIP(ipStr)) {
+				return true, nil
+			}
+		} else {
+			if inet == ipStr {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+func filterEmpty(input []string) []string {
+
+	var output []string
+	for _, str := range input {
+		if str == "NULL" {
+			continue
+		}
+		if strings.TrimSpace(str) != "" {
+			output = append(output, str)
+		}
+	}
+	return output
 }

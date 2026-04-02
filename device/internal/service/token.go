@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"crypto/sha256"
 	"fmt"
 
@@ -36,17 +35,15 @@ func NewTokenServiceWithConfig(repo *repository.TokenRepository, cache *cache.Re
 	}
 }
 
-func (s *TokenService) GetByKey(ctx context.Context, key string) (*model.Token, error) {
+func (s *TokenService) GetByKey(key string) (*model.Token, error) {
 	sum := sha256.Sum256([]byte(key))
 	sumStr := fmt.Sprintf("%x", sum)
-	s.logger.Info("hash generated", zap.String("key", key), zap.String("hash", sumStr))
-	t, err := s.repo.GetBySha256Sum(ctx, sumStr)
+	t, err := s.repo.GetBySha256SumOrSecret(sumStr, key)
 	if err != nil {
 		if err == repository.ErrTokenNotFound {
 			return nil, repository.ErrTokenNotFound
 		}
 		return nil, err
 	}
-	s.logger.Info("token retrieved", zap.String("user_id", t.UserID), zap.String("token_id", t.ID))
 	return t, nil
 }

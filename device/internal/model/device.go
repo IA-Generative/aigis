@@ -86,25 +86,22 @@ type StatusResponse struct {
 }
 
 type VerifyResponse struct {
-	DeviceID   string       `json:"device_id"`
-	UserID     string       `json:"user_id"`
-	TrustScore *int         `json:"trust_score"`
-	Message    string       `json:"message"`
-	Verified   bool         `json:"verified"`
-	Status     DeviceStatus `json:"status"`
+	DeviceID      *string `json:"device_id,omitempty"`
+	UserID        *string `json:"user_id,omitempty"`
+	ServiceID     *string `json:"service_id,omitempty"`
+	TrustScore    *int    `json:"trust_score,omitzero,omitempty"`
+	Message       string  `json:"message"`
+	Verified      bool    `json:"verified"`
+	Status        string  `json:"status"`
+	DeviceSigned  *bool   `json:"device_signed,omitempty"` // si le divice a une clé enregistrée
 }
 
-// type VerifyResponse struct {
-// 	Code    int
-// 	Payload VerifySignatureResponse
-// }
-
 type VerifySignatureResponse struct {
-	DeviceID     string `json:"device_id"`
+	DeviceID     string `json:"device_id,omitempty"`
 	UserID       string `json:"user_id"`
-	TrustScore   *int   `json:"trust_score"`
+	TrustScore   *int   `json:"trust_score,omitzero,omitempty"`
 	Status       string `json:"status"`
-	DeviceSigned bool   `json:"device_signed"` // si le divice a une clé enregistrée
+	DeviceSigned bool   `json:"device_signed,omitempty"` // si le divice a une clé enregistrée
 	Message      string `json:"message"`
 	Verified     bool   `json:"verified"`
 }

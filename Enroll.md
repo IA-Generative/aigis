@@ -29,7 +29,7 @@ Toutes les routes protégées exigent un **Bearer JWT** valide émis par Keycloa
 GET /api/discover
 ```
 
-Cet endpoint retourne dynamiquement les URLs Keycloak configurées (authorization URL, JWKS endpoint, redirect URI, client ID) ainsi que les méthodes d'approbation actives.
+Cet endpoint retourne dynamiquement les URLs Keycloak configurées (authorization URLs, client ID) ainsi que les méthodes d'approbation actives.
 
 ```jsonc
 // GET /api/discover — réponse
@@ -37,6 +37,7 @@ Cet endpoint retourne dynamiquement les URLs Keycloak configurées (authorizatio
   "auth_url": "https://keycloak.example.com/realms/myapp/protocol/openid-connect/auth",
   "token_url": "https://keycloak.example.com/realms/myapp/protocol/openid-connect/token",
   "logout_url": "https://keycloak.example.com/realms/myapp/protocol/openid-connect/logout",
+  "client_id": "device-service"
 }
 ```
 

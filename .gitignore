@@ -4,15 +4,3 @@ build/
 tmp/
 helm/charts/
 .env.integ
-sources:
-  - repoURL: >-
-      https://gitlab.sdid.cpin.numerique-interieur.com/forge-mi/projects/device/app.git
-    path: helm/
-    targetRevision: feat/helm
-    helm:
-      valueFiles:
-        - $values/managerhp.yaml
-  - repoURL: >-
-      https://gitlab.sdid.cpin.numerique-interieur.com/forge-mi/projects/device/values.git
-    targetRevision: main
-    ref: values

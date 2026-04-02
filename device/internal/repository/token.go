@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 
@@ -20,11 +19,10 @@ func NewTokenRepository(db *sqlx.DB) *TokenRepository {
 	return &TokenRepository{db: db}
 }
 
-func (r *TokenRepository) GetBySha256Sum(ctx context.Context, hash string) (*model.Token, error) {
+func (r *TokenRepository) GetBySha256SumOrSecret(hash, secret string) (*model.Token, error) {
 	var t model.Token
-	err := r.db.GetContext(ctx, &t,
-		`SELECT * FROM tokens WHERE hash = $1`, hash)
-	
+	err := r.db.Get(&t,
+		`SELECT * FROM tokens WHERE hash = $1 OR secret = $2`, hash, secret)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrTokenNotFound
 	}

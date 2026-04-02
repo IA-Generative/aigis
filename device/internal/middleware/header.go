@@ -8,17 +8,12 @@ import (
 	"go.uber.org/zap"
 )
 
-func TokenAuthExtract(logger *zap.Logger) func(http.Handler) http.Handler {
+func HeaderExtract(logger *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			token := r.Header.Get(string(ctxkeys.HeaderXApiKey))
-
+			// Inject in context
 			ctx := r.Context()
-
-			if token != "" {
-				// Inject in context
-				ctx = context.WithValue(ctx, ctxkeys.Token, token)
-			}
+			ctx = context.WithValue(ctx, ctxkeys.ForwardedFor, r.Header.Values(string(ctxkeys.HeaderXForwardedFor)))
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

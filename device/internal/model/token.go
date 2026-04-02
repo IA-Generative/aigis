@@ -14,12 +14,14 @@ const (
 )
 
 type Token struct {
-	ID        string      `db:"id"              json:"id"`
-	UserID    string      `db:"user_id"         json:"user_id"`
-	Algorithm *string     `db:"algorithm"       json:"algorithm,omitempty"`
-	Name      *string     `db:"name"            json:"name,omitempty"`
-	Hash      string      `db:"hash"            json:"hash"`
-	Status    TokenStatus `db:"status"          json:"status"`
+	ID          string      `db:"id"              json:"id"`
+	UserID      string      `db:"user_id"         json:"user_id"`
+	Algorithm   *string     `db:"algorithm"       json:"algorithm,omitempty"`
+	Name        *string     `db:"name"            json:"name,omitempty"`
+	Hash        *string     `db:"hash"            json:"hash"`
+	Secret      *string     `db:"secret"`
+	IPWhitelist *string     `db:"ip_whitelist"    json:"ip_whitelist,omitempty"`
+	Status      TokenStatus `db:"status"`
 	// Attestation
 	ApprovedBy *string    `db:"approved_by"     json:"approved_by,omitempty"`
 	ApprovedAt *time.Time `db:"approved_at"     json:"approved_at,omitempty"`

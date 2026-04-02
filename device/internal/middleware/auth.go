@@ -25,7 +25,7 @@ func JWTAuth(jwksURL string, logger *zap.Logger, mandatory bool) func(http.Handl
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			authHeader := r.Header.Get("Authorization")
+			authHeader := r.Header.Get(string(ctxkeys.HeaderAuthorization))
 			if !strings.HasPrefix(authHeader, "Bearer ") {
 				if mandatory {
 					http.Error(w, `{"error":"missing token"}`, http.StatusUnauthorized)

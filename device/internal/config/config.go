@@ -4,6 +4,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/ia-generative/device-service/internal/ctxkeys"
 )
 
 // ApprovalMethod définit un mécanisme d'approbation pour l'enrollment.
@@ -16,7 +18,7 @@ const (
 )
 
 type Config struct {
-	UiEnabled						bool
+	UiEnabled           bool
 	Env                 string
 	Port                string
 	DatabaseURL         string
@@ -64,8 +66,25 @@ type Config struct {
 func Load() *Config {
 	keycloakRealm := getEnv("KEYCLOAK_REALM", "myapp")
 
+	defaultAllowHeaders := []string{
+		"Accept",
+		string(ctxkeys.HeaderAuthorization),
+		"Content-Type",
+		"Origin",
+		string(ctxkeys.HeaderXDeviceID),
+		string(ctxkeys.HeaderXDeviceNonce),
+		string(ctxkeys.HeaderXDeviceTimestamp),
+		string(ctxkeys.HeaderXDeviceSignature),
+		string(ctxkeys.HeaderXUserID),
+		string(ctxkeys.HeaderXApiKey),
+		string(ctxkeys.HeaderXForwardedFor), // Source IP du client (dernière IP dans la chaîne)
+		"X-Forwarded-Proto", // HTTP ou HTTPS
+		"X-Forwarded-Method", // Méthode HTTP originale (utile si un proxy modifie la méthode)
+		"X-Forwarded-Host", // Host original de la requête
+		"X-Forwarded-Uri", // URI original de la requête
+	}
 	return &Config{
-		UiEnabled: parseBool(getEnv("UI_ENABLED", "false"), false),
+		UiEnabled:           parseBool(getEnv("UI_ENABLED", "false"), false),
 		Env:                 getEnv("ENV", "development"),
 		Port:                getEnv("PORT", "8080"),
 		DatabaseURL:         getEnv("DATABASE_URL", "postgres://device:device@localhost:5432/devicedb?sslmode=disable"),
@@ -84,7 +103,7 @@ func Load() *Config {
 		// CORS
 		CORSAllowedOrigins:   parseCSV(getEnv("CORS_ALLOWED_ORIGINS", "*")),
 		CORSAllowedMethods:   parseCSV(getEnv("CORS_ALLOWED_METHODS", "GET,POST,PUT,PATCH,DELETE,OPTIONS")),
-		CORSAllowedHeaders:   parseCSV(getEnv("CORS_ALLOWED_HEADERS", "Accept,Authorization,Content-Type,Origin,X-Device-ID,X-Device-Nonce,X-Device-Timestamp,X-Device-Signature,X-API-KEY")),
+		CORSAllowedHeaders:   parseCSV(getEnv("CORS_ALLOWED_HEADERS", strings.Join(defaultAllowHeaders, ","))),
 		CORSExposedHeaders:   parseCSV(getEnv("CORS_EXPOSED_HEADERS", "")),
 		CORSAllowCredentials: parseBool(getEnv("CORS_ALLOW_CREDENTIALS", "true"), true),
 		CORSMaxAgeSeconds:    parseInt(getEnv("CORS_MAX_AGE_SECONDS", "300"), 300),

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/ia-generative/device-service/internal/config"
+	"github.com/ia-generative/device-service/internal/model"
 	"github.com/ia-generative/device-service/internal/service"
 )
 
@@ -33,17 +34,17 @@ type discoverRequest struct {
 	ChallengeSignature string `json:"challenge_signature,omitempty"`
 }
 
-func (h *DiscoverHandler) baseResponse(clientID string) map[string]interface{} {
+func (h *DiscoverHandler) baseResponse(clientID string) model.Discover {
 	authBaseURL := strings.TrimRight(h.cfg.KeycloakPublicURI, "/")
 	authPath := "/realms/" + h.cfg.KeycloakRealm + "/protocol/openid-connect/auth"
 	tokenPath := "/realms/" + h.cfg.KeycloakRealm + "/protocol/openid-connect/token"
 	logoutPath := "/realms/" + h.cfg.KeycloakRealm + "/protocol/openid-connect/logout"
 
-	return map[string]interface{}{
-		"auth_url":      authBaseURL + authPath,
-		"token_url":     authBaseURL + tokenPath,
-		"logout_url":    authBaseURL + logoutPath,
-		"client_id":     clientID,
+	return model.Discover{
+		AuthUrl:   authBaseURL + authPath,
+		TokenUrl:  authBaseURL + tokenPath,
+		LogoutUrl: authBaseURL + logoutPath,
+		ClientID:  clientID,
 	}
 }
 

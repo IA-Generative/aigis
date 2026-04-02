@@ -71,6 +71,7 @@ func main() {
 
 	// Router
 	r := chi.NewRouter()
+	r.Use(authmw.HeaderExtract(logger))
 
 	// Collect metrics for incoming HTTP requests automatically.
 	r.Use(metrics.Collector(metrics.CollectorOpts{
