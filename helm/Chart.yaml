@@ -2,12 +2,10 @@ apiVersion: v2
 name: device-service
 description: Device Service with CloudNativePG database cluster
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
-
+version: 0.1.1
+appVersion: "0.2.0"
 maintainers:
   - name: IA-Generative
-
 dependencies:
   - name: valkey
     repository: oci://registry-1.docker.io/cloudpirates
@@ -18,7 +16,6 @@ dependencies:
     version: 0.6.0
     repository: https://cloudnative-pg.io/charts
     condition: cnpg.enabled
-
 keywords:
   - device
   - attestation
@@ -26,7 +23,6 @@ keywords:
   - postgresql
   - valkey
   - redis
-
 annotations:
   artifacthub.io/changes: |
     - kind: added
