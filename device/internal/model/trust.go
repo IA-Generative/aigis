@@ -1,11 +1,6 @@
 package model
 
-import (
-	"fmt"
-	"time"
-
-	"go.uber.org/zap"
-)
+import "time"
 
 // TrustParams contient les paramètres configurables du calcul de trust score.
 // Passé en valeur pour garder le calcul pur (pas de dépendance config/service).
@@ -22,7 +17,6 @@ type TrustParams struct {
 // Le score est toujours recalculé en temps réel — la valeur en DB n'est qu'un cache.
 func ComputeTrustScore(device *Device, params TrustParams) (int, TrustBreakdown) {
 	bd := computeBreakdown(device, params)
-	fmt.Sprintf("breakdown", zap.Any("breakdown", bd))
 	total := bd.ApprovalMethod +
 		bd.AttestationAge +
 		bd.ReattestCount +

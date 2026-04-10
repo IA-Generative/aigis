@@ -2,20 +2,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "device-service.fullname" . }}-adminer
+  name: {{ include "aigis.fullname" . }}-adminer
   labels:
-    {{- include "device-service.labels" . | nindent 4 }}
+    {{- include "aigis.labels" . | nindent 4 }}
     app.kubernetes.io/component: adminer
 spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "device-service.selectorLabels" . | nindent 6 }}
+      {{- include "aigis.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: adminer
   template:
     metadata:
       labels:
-        {{- include "device-service.labels" . | nindent 8 }}
+        {{- include "aigis.labels" . | nindent 8 }}
         app.kubernetes.io/component: adminer
     spec:
       securityContext:
@@ -34,7 +34,7 @@ spec:
               value: {{ .Values.adminer.defaultServer | quote }}
             {{- else if not .Values.database.external.enabled }}
             - name: ADMINER_DEFAULT_SERVER
-              value: {{ printf "%s-rw" (include "device-service.cnpgClusterName" .) | quote }}
+              value: {{ printf "%s-rw" (include "aigis.cnpgClusterName" .) | quote }}
             {{- end }}
           livenessProbe:
             httpGet:

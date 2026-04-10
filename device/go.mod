@@ -1,4 +1,4 @@
-module github.com/ia-generative/device-service
+module github.com/ia-generative/aigis
 
 go 1.22
 

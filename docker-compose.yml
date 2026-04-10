@@ -12,18 +12,18 @@ services:
     environment:
       VITE_API_URL: http://localhost:8080/api
     depends_on:
-      device-service:
+      backend:
         condition: service_started
       keycloak:
         condition: service_healthy
     restart: unless-stopped
 
-  device-service:
+  backend:
     build:
       context: .
       target: dev
       dockerfile: device/Dockerfile
-    image: github.com/nonot/device-service:dev
+    image: github.com/ia-generative/aigis:dev
     ports:
       - "8080:8080"
     volumes:

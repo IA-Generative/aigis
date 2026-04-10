@@ -21,4 +21,4 @@ jobs:
     uses: ./.github/workflows/build.yml
     with:
       tags: |
-        ghcr.io/ia-generative/device-service:pr-${{ github.event.pull_request.number }}
+        ghcr.io/ia-generative/aigis:pr-${{ github.event.pull_request.number }}

@@ -10,8 +10,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/ia-generative/device-service/internal/attestation"
-	"github.com/ia-generative/device-service/internal/model"
+	"github.com/ia-generative/aigis/internal/attestation"
+	"github.com/ia-generative/aigis/internal/model"
 )
 
 const (

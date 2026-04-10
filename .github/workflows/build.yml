@@ -34,9 +34,9 @@ jobs:
         if [ -z "${{ inputs.tags }}" ]; then
           echo "No tags provided, extracting from git tag"
           VERSION=${GITHUB_REF_NAME#v}
-          MAJOR="ghcr.io/ia-generative/device-service:$(echo $VERSION | cut -d. -f1)"
-          MINOR="ghcr.io/ia-generative/device-service:$(echo $VERSION | cut -d. -f1,2)"
-          PATCH="ghcr.io/ia-generative/device-service:${VERSION}"
+          MAJOR="ghcr.io/ia-generative/aigis:$(echo $VERSION | cut -d. -f1)"
+          MINOR="ghcr.io/ia-generative/aigis:$(echo $VERSION | cut -d. -f1,2)"
+          PATCH="ghcr.io/ia-generative/aigis:${VERSION}"
           echo "tags<<EOF" >> "$GITHUB_OUTPUT"
           echo "$MAJOR" >> "$GITHUB_OUTPUT"
           echo "$MINOR" >> "$GITHUB_OUTPUT"

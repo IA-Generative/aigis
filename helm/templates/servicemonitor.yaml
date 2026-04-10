@@ -2,16 +2,16 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: {{ include "device-service.fullname" . }}
+  name: {{ include "aigis.fullname" . }}
   labels:
-    {{- include "device-service.labels" . | nindent 4 }}
+    {{- include "aigis.labels" . | nindent 4 }}
     {{- with .Values.serviceMonitor.labels }}
     {{ toYaml . | nindent 4 }}
     {{- end }}
 spec:
   selector:
     matchLabels:
-      {{- include "device-service.labels" . | nindent 6 }}
+      {{- include "aigis.labels" . | nindent 6 }}
   endpoints:
     - port: http
       path: {{ .Values.serviceMonitor.path }}

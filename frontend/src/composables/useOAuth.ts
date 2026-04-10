@@ -1,7 +1,6 @@
 import { useAuthStore } from '@/stores/auth'
 import { apiFetch, DEVICE_SERVICE_BASE_URL } from '@/lib/api'
 import { buildAuthUrl, exchangeCode, hasOAuthCallbackParams, clearOAuthQueryParams } from '@/lib/oauth'
-import { useDeviceStore } from '@/stores/device'
 
 type DiscoverData = {
   auth_url: string

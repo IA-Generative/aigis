@@ -3,7 +3,7 @@
   "packages": {
     ".": {
       "release-type": "go",
-      "component": "device-service"
+      "component": "aigis"
     }
   }
 }

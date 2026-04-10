@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/ia-generative/device-service/internal/ctxkeys"
+	"github.com/ia-generative/aigis/internal/ctxkeys"
 	"go.uber.org/zap"
 )
 

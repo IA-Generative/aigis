@@ -10,11 +10,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
-	"github.com/ia-generative/device-service/internal/config"
-	"github.com/ia-generative/device-service/internal/ctxkeys"
-	"github.com/ia-generative/device-service/internal/model"
-	"github.com/ia-generative/device-service/internal/repository"
-	"github.com/ia-generative/device-service/internal/service"
+	"github.com/ia-generative/aigis/internal/config"
+	"github.com/ia-generative/aigis/internal/ctxkeys"
+	"github.com/ia-generative/aigis/internal/model"
+	"github.com/ia-generative/aigis/internal/repository"
+	"github.com/ia-generative/aigis/internal/service"
 )
 
 type DeviceHandler struct {

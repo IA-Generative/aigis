@@ -8,7 +8,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/ia-generative/device-service/internal/model"
+	"github.com/ia-generative/aigis/internal/model"
 )
 
 var ErrNotFound = errors.New("device not found")

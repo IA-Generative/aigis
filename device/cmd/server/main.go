@@ -17,13 +17,13 @@ import (
 	"github.com/go-chi/metrics"
 	"go.uber.org/zap"
 
-	"github.com/ia-generative/device-service/internal/cache"
-	"github.com/ia-generative/device-service/internal/config"
-	"github.com/ia-generative/device-service/internal/db"
-	"github.com/ia-generative/device-service/internal/handler"
-	authmw "github.com/ia-generative/device-service/internal/middleware"
-	"github.com/ia-generative/device-service/internal/repository"
-	"github.com/ia-generative/device-service/internal/service"
+	"github.com/ia-generative/aigis/internal/cache"
+	"github.com/ia-generative/aigis/internal/config"
+	"github.com/ia-generative/aigis/internal/db"
+	"github.com/ia-generative/aigis/internal/handler"
+	authmw "github.com/ia-generative/aigis/internal/middleware"
+	"github.com/ia-generative/aigis/internal/repository"
+	"github.com/ia-generative/aigis/internal/service"
 )
 
 func main() {

@@ -1,16 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "device-service.fullname" . }}
+  name: {{ include "aigis.fullname" . }}
   labels:
-    {{- include "device-service.labels" . | nindent 4 }}
+    {{- include "aigis.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
   selector:
     matchLabels:
-      {{- include "device-service.selectorLabels" . | nindent 6 }}
+      {{- include "aigis.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
@@ -21,7 +21,7 @@ spec:
         {{- end }}
       labels:
         app.kubernetes.io/component: app
-        {{- include "device-service.labels" . | nindent 8 }}
+        {{- include "aigis.labels" . | nindent 8 }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -30,14 +30,14 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "device-service.serviceAccountName" . }}
+      serviceAccountName: {{ include "aigis.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ include "device-service.imageTag" . }}"
+          image: "{{ .Values.image.repository }}:{{ include "aigis.imageTag" . }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
@@ -45,30 +45,30 @@ spec:
               protocol: TCP
           envFrom:
             - configMapRef:
-                name: {{ include "device-service.fullname" . }}
+                name: {{ include "aigis.fullname" . }}
           env:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "device-service.dbSecretName" . }}
-                  key: {{ include "device-service.dbSecretKey" . }}
+                  name: {{ include "aigis.dbSecretName" . }}
+                  key: {{ include "aigis.dbSecretKey" . }}
             {{- if .Values.redis.external.enabled }}
             - name: REDIS_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "device-service.redisSecretName" . }}
-                  key: {{ include "device-service.redisSecretKey" . }}
+                  name: {{ include "aigis.redisSecretName" . }}
+                  key: {{ include "aigis.redisSecretKey" . }}
             {{- else }}
             - name: REDIS_URL
-              value: {{ printf "redis://%s:6379" (include "device-service.valkeyServiceName" .) | quote }}
+              value: {{ printf "redis://%s:6379" (include "aigis.valkeyServiceName" .) | quote }}
             {{- end }}
             {{- $smtpAuthType := .Values.app.smtp.authType | default "none" }}
             {{- if ne $smtpAuthType "none" }}
             - name: SMTP_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "device-service.smtpSecretName" . }}
-                  key: {{ include "device-service.smtpSecretPasswordKey" . }}
+                  name: {{ include "aigis.smtpSecretName" . }}
+                  key: {{ include "aigis.smtpSecretPasswordKey" . }}
             {{- end }}
             {{- if .Values.frontend.enabled }}
             - name: UI_ENABLED

@@ -9,7 +9,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 
-	"github.com/ia-generative/device-service/internal/cache"
+	"github.com/ia-generative/aigis/internal/cache"
 )
 
 type ProbeHandler struct {

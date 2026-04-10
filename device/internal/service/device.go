@@ -11,10 +11,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/ia-generative/device-service/internal/cache"
-	"github.com/ia-generative/device-service/internal/config"
-	"github.com/ia-generative/device-service/internal/model"
-	"github.com/ia-generative/device-service/internal/repository"
+	"github.com/ia-generative/aigis/internal/cache"
+	"github.com/ia-generative/aigis/internal/config"
+	"github.com/ia-generative/aigis/internal/model"
+	"github.com/ia-generative/aigis/internal/repository"
 
 	"math/big"
 

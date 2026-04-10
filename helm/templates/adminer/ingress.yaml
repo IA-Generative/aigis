@@ -2,9 +2,9 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "device-service.fullname" . }}-adminer
+  name: {{ include "aigis.fullname" . }}-adminer
   labels:
-    {{- include "device-service.labels" . | nindent 4 }}
+    {{- include "aigis.labels" . | nindent 4 }}
     app.kubernetes.io/component: adminer
   {{- with .Values.adminer.ingress.annotations }}
   annotations:
@@ -28,7 +28,7 @@ spec:
             pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ include "device-service.fullname" $ }}-adminer
+                name: {{ include "aigis.fullname" $ }}-adminer
                 port:
                   number: {{ $.Values.adminer.service.port }}
           {{- end }}

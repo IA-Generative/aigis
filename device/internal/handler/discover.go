@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ia-generative/device-service/internal/config"
-	"github.com/ia-generative/device-service/internal/model"
-	"github.com/ia-generative/device-service/internal/service"
+	"github.com/ia-generative/aigis/internal/config"
+	"github.com/ia-generative/aigis/internal/model"
+	"github.com/ia-generative/aigis/internal/service"
 )
 
 type DiscoverHandler struct {

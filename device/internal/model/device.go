@@ -3,7 +3,7 @@ package model
 import (
 	"time"
 
-	cfg "github.com/ia-generative/device-service/internal/config"
+	cfg "github.com/ia-generative/aigis/internal/config"
 )
 
 type DeviceStatus string
@@ -86,14 +86,14 @@ type StatusResponse struct {
 }
 
 type VerifyResponse struct {
-	DeviceID      *string `json:"device_id,omitempty"`
-	UserID        *string `json:"user_id,omitempty"`
-	ServiceID     *string `json:"service_id,omitempty"`
-	TrustScore    *int    `json:"trust_score,omitzero,omitempty"`
-	Message       string  `json:"message"`
-	Verified      bool    `json:"verified"`
-	Status        string  `json:"status"`
-	DeviceSigned  *bool   `json:"device_signed,omitempty"` // si le divice a une clé enregistrée
+	DeviceID     *string `json:"device_id,omitempty"`
+	UserID       *string `json:"user_id,omitempty"`
+	ServiceID    *string `json:"service_id,omitempty"`
+	TrustScore   *int    `json:"trust_score,omitzero,omitempty"`
+	Message      string  `json:"message"`
+	Verified     bool    `json:"verified"`
+	Status       string  `json:"status"`
+	DeviceSigned *bool   `json:"device_signed,omitempty"` // si le divice a une clé enregistrée
 }
 
 type VerifySignatureResponse struct {

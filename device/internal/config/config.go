@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ia-generative/device-service/internal/ctxkeys"
+	"github.com/ia-generative/aigis/internal/ctxkeys"
 )
 
 // ApprovalMethod définit un mécanisme d'approbation pour l'enrollment.
@@ -78,10 +78,10 @@ func Load() *Config {
 		string(ctxkeys.HeaderXUserID),
 		string(ctxkeys.HeaderXApiKey),
 		string(ctxkeys.HeaderXForwardedFor), // Source IP du client (dernière IP dans la chaîne)
-		"X-Forwarded-Proto", // HTTP ou HTTPS
-		"X-Forwarded-Method", // Méthode HTTP originale (utile si un proxy modifie la méthode)
-		"X-Forwarded-Host", // Host original de la requête
-		"X-Forwarded-Uri", // URI original de la requête
+		"X-Forwarded-Proto",                 // HTTP ou HTTPS
+		"X-Forwarded-Method",                // Méthode HTTP originale (utile si un proxy modifie la méthode)
+		"X-Forwarded-Host",                  // Host original de la requête
+		"X-Forwarded-Uri",                   // URI original de la requête
 	}
 	return &Config{
 		UiEnabled:           parseBool(getEnv("UI_ENABLED", "false"), false),
